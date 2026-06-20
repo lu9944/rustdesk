@@ -184,6 +184,14 @@ const String kOptionAllowInsecureTLSFallback = "allow-insecure-tls-fallback";
 const String kOptionDisableUdp = "disable-udp";
 const String kOptionEnableFlutterHttpOnRust = "enable-flutter-http-on-rust";
 
+// server config presets (multi-server switching)
+const String kOptionServerConfigPresets = "server-config-presets";
+const String kOptionServerConfigActivePreset = "server-config-active-preset";
+
+// proxy config presets (multi-proxy switching)
+const String kOptionProxyConfigPresets = "proxy-config-presets";
+const String kOptionProxyConfigActivePreset = "proxy-config-active-preset";
+
 // builtin options
 const String kOptionHideServerSetting = "hide-server-settings";
 const String kOptionHideProxySetting = "hide-proxy-settings";

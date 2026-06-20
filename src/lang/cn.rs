@@ -758,5 +758,18 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("wayland-keyboard-input-reset-choice-tip", "重置键盘输入选择"),
         ("remember-wayland-keyboard-choice-tip", "以后对这台远程电脑不再询问"),
         ("Why this happens", "了解原因"),
+        ("Server Config Presets", "服务器配置预设"),
+        ("Save current as preset", "保存当前为预设"),
+        ("Preset name", "预设名称"),
+        ("No presets saved", "尚未保存任何预设"),
+        ("Using public server", "使用公共服务器"),
+        ("Already exists, overwrite?", "已存在，是否覆盖？"),
+        ("Overwrite with current values?", "是否使用当前值覆盖？"),
+        ("Are you sure you want to delete this preset?", "确定要删除此预设吗？"),
+        ("More actions", "更多操作"),
+        ("Server may be unreachable, save anyway?", "服务器可能不可达，是否仍然保存？"),
+        ("Proxy Config Presets", "代理配置预设"),
+        ("No Proxy", "不使用代理"),
+        ("Direct connection", "直连"),
     ].iter().cloned().collect();
 }

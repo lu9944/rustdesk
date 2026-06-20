@@ -827,6 +827,11 @@ class OverlayDialogManager {
     _overlayKeyState = overlayKeyState;
   }
 
+  /// The [OverlayState] that this manager inserts dialog entries into.
+  /// Exposed so callers can insert their own raw [OverlayEntry]s (e.g. when
+  /// they need a widget type that [DialogBuilder] doesn't allow).
+  OverlayState? get overlayState => _overlayKeyState.state;
+
   void dismissAll() {
     _dialogs.forEach((key, value) {
       value.complete(null);
@@ -2960,6 +2965,187 @@ class ServerConfig {
         relayServer = options['relay-server'] ?? "",
         apiServer = options['api-server'] ?? "",
         key = options['key'] ?? "";
+}
+
+/// A named, savable server configuration preset.
+///
+/// Stored (as a JSON array of these objects) under the option key
+/// [kOptionServerConfigPresets] so users can keep multiple server configs
+/// (e.g. one for the intranet, one for the public internet) and switch
+/// between them with a single click.
+class ServerConfigPreset {
+  String name;
+  String idServer;
+  String relayServer;
+  String apiServer;
+  String key;
+
+  ServerConfigPreset({
+    required this.name,
+    String? idServer,
+    String? relayServer,
+    String? apiServer,
+    String? key,
+  })  : idServer = idServer?.trim() ?? '',
+        relayServer = relayServer?.trim() ?? '',
+        apiServer = apiServer?.trim() ?? '',
+        key = key?.trim() ?? '';
+
+  ServerConfigPreset.fromServerConfig(
+    this.name,
+    ServerConfig config,
+  )   : idServer = config.idServer,
+        relayServer = config.relayServer,
+        apiServer = config.apiServer,
+        key = config.key;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'idServer': idServer,
+        'relayServer': relayServer,
+        'apiServer': apiServer,
+        'key': key,
+      };
+
+  factory ServerConfigPreset.fromJson(Map<String, dynamic> json) {
+    return ServerConfigPreset(
+      name: (json['name'] ?? '').toString(),
+      idServer: json['idServer']?.toString(),
+      relayServer: json['relayServer']?.toString(),
+      apiServer: json['apiServer']?.toString(),
+      key: json['key']?.toString(),
+    );
+  }
+
+  ServerConfig toServerConfig() => ServerConfig(
+        idServer: idServer,
+        relayServer: relayServer,
+        apiServer: apiServer,
+        key: key,
+      );
+
+  /// Loose equality on the four server fields (ignores [name]).
+  bool equalsServerConfig(ServerConfig other) =>
+      idServer == other.idServer &&
+      relayServer == other.relayServer &&
+      apiServer == other.apiServer &&
+      key == other.key;
+}
+
+/// Read all saved server-config presets. Never throws; returns an empty list
+/// on parse failure or when nothing has been saved yet.
+///
+/// Uses the sync option getter so callers can invoke this during dialog build
+/// without suspending (avoids a perceptible lag / freeze when opening the
+/// ID/Relay Server dialog).
+List<ServerConfigPreset> getServerConfigPresets() {
+  String raw;
+  try {
+    raw = bind.mainGetOptionSync(key: kOptionServerConfigPresets);
+  } catch (_) {
+    return [];
+  }
+  raw = raw.trim();
+  if (raw.isEmpty) return [];
+  try {
+    final list = jsonDecode(raw);
+    if (list is! List) return [];
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(ServerConfigPreset.fromJson)
+        .where((p) => p.name.isNotEmpty)
+        .toList();
+  } catch (e) {
+    debugPrint("Failed to parse server-config-presets: $e");
+    return [];
+  }
+}
+
+/// Persist the entire presets list. Empty / single-element edge cases are
+/// handled by writing an empty string so the option does not linger.
+Future<void> setServerConfigPresets(
+    List<ServerConfigPreset> presets) async {
+  final json = jsonEncode(presets.map((p) => p.toJson()).toList());
+  await bind.mainSetOption(key: kOptionServerConfigPresets, value: json);
+}
+
+String getActiveServerConfigPreset() {
+  return bind.mainGetOptionSync(key: kOptionServerConfigActivePreset);
+}
+
+Future<void> setActiveServerConfigPreset(String name) async {
+  await bind.mainSetOption(
+      key: kOptionServerConfigActivePreset, value: name);
+}
+
+/// A named, savable proxy configuration preset. Same pattern as
+/// [ServerConfigPreset] but for Socks5/HTTP proxy settings.
+class ProxyConfigPreset {
+  String name;
+  String proxy;
+  String username;
+  String password;
+
+  ProxyConfigPreset({
+    required this.name,
+    String? proxy,
+    String? username,
+    String? password,
+  })  : proxy = proxy?.trim() ?? '',
+        username = username?.trim() ?? '',
+        password = password ?? '';
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'proxy': proxy,
+        'username': username,
+        'password': password,
+      };
+
+  factory ProxyConfigPreset.fromJson(Map<String, dynamic> json) {
+    return ProxyConfigPreset(
+      name: (json['name'] ?? '').toString(),
+      proxy: json['proxy']?.toString(),
+      username: json['username']?.toString(),
+      password: json['password']?.toString(),
+    );
+  }
+}
+
+List<ProxyConfigPreset> getProxyConfigPresets() {
+  String raw;
+  try {
+    raw = bind.mainGetOptionSync(key: kOptionProxyConfigPresets);
+  } catch (_) {
+    return [];
+  }
+  raw = raw.trim();
+  if (raw.isEmpty) return [];
+  try {
+    final list = jsonDecode(raw);
+    if (list is! List) return [];
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(ProxyConfigPreset.fromJson)
+        .where((p) => p.name.isNotEmpty)
+        .toList();
+  } catch (e) {
+    debugPrint("Failed to parse proxy-config-presets: $e");
+    return [];
+  }
+}
+
+Future<void> setProxyConfigPresets(List<ProxyConfigPreset> presets) async {
+  final json = jsonEncode(presets.map((p) => p.toJson()).toList());
+  await bind.mainSetOption(key: kOptionProxyConfigPresets, value: json);
+}
+
+String getActiveProxyConfigPreset() {
+  return bind.mainGetOptionSync(key: kOptionProxyConfigActivePreset);
+}
+
+Future<void> setActiveProxyConfigPreset(String name) async {
+  await bind.mainSetOption(key: kOptionProxyConfigActivePreset, value: name);
 }
 
 Widget dialogButton(String text,

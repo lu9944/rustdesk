@@ -758,5 +758,18 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("wayland-keyboard-input-reset-choice-tip", ""),
         ("remember-wayland-keyboard-choice-tip", ""),
         ("Why this happens", ""),
+        ("Server Config Presets", ""),
+        ("Save current as preset", ""),
+        ("Preset name", ""),
+        ("No presets saved", ""),
+        ("Using public server", ""),
+        ("Already exists, overwrite?", ""),
+        ("Overwrite with current values?", ""),
+        ("Are you sure you want to delete this preset?", ""),
+        ("More actions", ""),
+        ("Server may be unreachable, save anyway?", ""),
+        ("Proxy Config Presets", ""),
+        ("No Proxy", ""),
+        ("Direct connection", ""),
     ].iter().cloned().collect();
 }

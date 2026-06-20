@@ -3023,6 +3023,15 @@ void changeSocks5Proxy() async {
   var pwdController = TextEditingController(text: password);
   RxBool obscure = true.obs;
 
+  // Proxy presets state (same inline-editing pattern as server config presets).
+  final RxList<ProxyConfigPreset> proxyPresets =
+      getProxyConfigPresets().obs;
+  final RxString activeProxyPreset = getActiveProxyConfigPreset().obs;
+  final RxBool isAddingProxyPreset = false.obs;
+  final TextEditingController newProxyNameCtrl = TextEditingController();
+  final RxString renamingProxyPreset = ''.obs;
+  final TextEditingController proxyRenameCtrl = TextEditingController();
+
   // proxy settings
   // The following option is a not real key, it is just used for custom client advanced settings.
   const String optionProxyUrl = "proxy-url";
@@ -3062,6 +3071,265 @@ void changeSocks5Proxy() async {
       await bind.mainSetSocks(
           proxy: proxy, username: username, password: password);
       close();
+    }
+
+    // --- proxy preset actions ------------------------------------------
+
+    void startAddProxyPreset() {
+      newProxyNameCtrl.clear();
+      isAddingProxyPreset.value = true;
+    }
+
+    Future<void> confirmAddProxyPreset() async {
+      final name = newProxyNameCtrl.text.trim();
+      if (name.isEmpty) return;
+      final existing =
+          proxyPresets.firstWhereOrNull((p) => p.name == name);
+      if (existing != null) {
+        final ok = await showPresetConfirmDialog(
+          gFFI.dialogManager,
+          translate('Overwrite'),
+          '"$name" ${translate('Already exists, overwrite?')}',
+        );
+        if (!ok) return;
+        existing
+          ..proxy = proxyController.text.trim()
+          ..username = userController.text.trim()
+          ..password = pwdController.text.trim();
+      } else {
+        proxyPresets.add(ProxyConfigPreset(
+          name: name,
+          proxy: proxyController.text.trim(),
+          username: userController.text.trim(),
+          password: pwdController.text.trim(),
+        ));
+      }
+      await setProxyConfigPresets(proxyPresets.toList());
+      isAddingProxyPreset.value = false;
+      showToast(translate('Successful'));
+    }
+
+    void cancelAddProxyPreset() {
+      isAddingProxyPreset.value = false;
+    }
+
+    Future<void> clearProxy() async {
+      proxyController.clear();
+      userController.clear();
+      pwdController.clear();
+      await bind.mainSetSocks(proxy: '', username: '', password: '');
+      await setActiveProxyConfigPreset('');
+      activeProxyPreset.value = '';
+      showToast(translate('Successful'));
+    }
+
+    Future<void> applyProxyPreset(ProxyConfigPreset p) async {
+      proxyController.text = p.proxy;
+      userController.text = p.username;
+      pwdController.text = p.password;
+      await bind.mainSetSocks(
+          proxy: p.proxy, username: p.username, password: p.password);
+      await setActiveProxyConfigPreset(p.name);
+      activeProxyPreset.value = p.name;
+      showToast(translate('Successful'));
+    }
+
+    void startRenameProxyPreset(ProxyConfigPreset p) {
+      proxyRenameCtrl.text = p.name;
+      renamingProxyPreset.value = p.name;
+    }
+
+    Future<void> confirmRenameProxyPreset(ProxyConfigPreset p) async {
+      final name = proxyRenameCtrl.text.trim();
+      if (name.isEmpty || name == p.name) {
+        renamingProxyPreset.value = '';
+        return;
+      }
+      if (proxyPresets.any((e) => e.name == name && e != p)) {
+        showToast(translate('Already exists'));
+        return;
+      }
+      final wasActive = activeProxyPreset.value == p.name;
+      p.name = name;
+      await setProxyConfigPresets(proxyPresets.toList());
+      if (wasActive) {
+        await setActiveProxyConfigPreset(name);
+        activeProxyPreset.value = name;
+      }
+      renamingProxyPreset.value = '';
+    }
+
+    void cancelRenameProxyPreset() {
+      renamingProxyPreset.value = '';
+    }
+
+    Future<void> deleteProxyPreset(ProxyConfigPreset p) async {
+      final ok = await showPresetConfirmDialog(
+        gFFI.dialogManager,
+        translate('Delete'),
+        '"${p.name}" ${translate('Are you sure you want to delete this preset?')}',
+      );
+      if (!ok) return;
+      proxyPresets.remove(p);
+      await setProxyConfigPresets(proxyPresets.toList());
+      if (activeProxyPreset.value == p.name) {
+        await setActiveProxyConfigPreset('');
+        activeProxyPreset.value = '';
+      }
+    }
+
+    // --- proxy preset widgets ------------------------------------------
+
+    Widget buildProxyPresetTile(ProxyConfigPreset p) {
+      final isActive = activeProxyPreset.value == p.name;
+      final isRenaming = renamingProxyPreset.value == p.name;
+      final subtitle = p.proxy.isEmpty ? translate('Direct connection') : p.proxy;
+      return ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          isActive ? Icons.check_circle : Icons.radio_button_unchecked,
+          color: isActive ? Colors.green : Theme.of(context).disabledColor,
+          size: 20,
+        ),
+        title: isRenaming
+            ? Row(children: [
+                Expanded(
+                  child: serverSettingsTextFormField(
+                    label: translate('Preset name'),
+                    controller: proxyRenameCtrl,
+                    errorMsg: '',
+                    showLabelText: false,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  ).workaroundFreezeLinuxMint(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.check, color: Colors.green, size: 20),
+                  onPressed: () => confirmRenameProxyPreset(p),
+                  constraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  padding: EdgeInsets.zero,
+                  splashRadius: 16,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                  onPressed: cancelRenameProxyPreset,
+                  constraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  padding: EdgeInsets.zero,
+                  splashRadius: 16,
+                ),
+              ])
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p.name),
+                  Text(subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
+        trailing: isRenaming
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  dialogButton('Apply', onPressed: () => applyProxyPreset(p)),
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    tooltip: translate('Rename'),
+                    onPressed: () => startRenameProxyPreset(p),
+                    constraints: const BoxConstraints(
+                        minWidth: 28, minHeight: 28),
+                    padding: EdgeInsets.zero,
+                    splashRadius: 16,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        size: 18, color: Colors.red),
+                    tooltip: translate('Delete'),
+                    onPressed: () => deleteProxyPreset(p),
+                    constraints: const BoxConstraints(
+                        minWidth: 28, minHeight: 28),
+                    padding: EdgeInsets.zero,
+                    splashRadius: 16,
+                  ),
+                ],
+              ),
+      );
+    }
+
+    Widget buildProxyPresetsSection() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Divider(height: 24),
+          if (isAddingProxyPreset.value)
+            Row(children: [
+              Expanded(
+                child: serverSettingsTextFormField(
+                  label: translate('Preset name'),
+                  controller: newProxyNameCtrl,
+                  errorMsg: '',
+                  showLabelText: false,
+                  autofocus: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                ).workaroundFreezeLinuxMint(),
+              ),
+              IconButton(
+                icon: const Icon(Icons.check, color: Colors.green),
+                onPressed: confirmAddProxyPreset,
+                constraints:
+                    const BoxConstraints(minWidth: 28, minHeight: 28),
+                padding: EdgeInsets.zero,
+                splashRadius: 16,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.red),
+                onPressed: cancelAddProxyPreset,
+                constraints:
+                    const BoxConstraints(minWidth: 28, minHeight: 28),
+                padding: EdgeInsets.zero,
+                splashRadius: 16,
+              ),
+            ])
+          else
+            Row(children: [
+              Text(translate('Proxy Config Presets')),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: clearProxy,
+                icon: const Icon(Icons.cloud_off, size: 16),
+                label: Text(translate('No Proxy')),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+              Tooltip(
+                message: translate('Save current as preset'),
+                child: IconButton(
+                  icon: const Icon(Icons.bookmark_add, color: Colors.grey),
+                  onPressed: startAddProxyPreset,
+                ),
+              ),
+            ]),
+          if (proxyPresets.isEmpty && !isAddingProxyPreset.value)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Text(
+                translate('No presets saved'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            )
+          else
+            ...proxyPresets.map((p) => buildProxyPresetTile(p)),
+        ],
+      );
     }
 
     return CustomAlertDialog(
@@ -3164,6 +3432,7 @@ void changeSocks5Proxy() async {
             // NOT use Offstage to wrap LinearProgressIndicator
             if (isInProgress)
               const LinearProgressIndicator().marginOnly(top: 8),
+            Obx(() => buildProxyPresetsSection()),
           ],
         ),
       ),
