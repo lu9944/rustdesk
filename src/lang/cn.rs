@@ -771,5 +771,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Proxy Config Presets", "代理配置预设"),
         ("No Proxy", "不使用代理"),
         ("Direct connection", "直连"),
+        ("Switch display", "切换显示器"),
+        ("Show monitor switch button on the main toolbar", "在主工具栏上显示显示器切换按钮"),
+        ("Show on the minimized toolbar", "在最小化工具栏上显示"),
     ].iter().cloned().collect();
 }

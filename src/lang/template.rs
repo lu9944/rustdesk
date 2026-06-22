@@ -771,5 +771,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Proxy Config Presets", ""),
         ("No Proxy", ""),
         ("Direct connection", ""),
+        ("Switch display", ""),
+        ("Show monitor switch button on the main toolbar", ""),
+        ("Show on the minimized toolbar", ""),
     ].iter().cloned().collect();
 }
