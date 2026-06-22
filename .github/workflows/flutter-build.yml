@@ -635,13 +635,16 @@ jobs:
           path: target/aarch64-apple-ios/release/liblibrustdesk.a
 
       - name: Clean iOS Pods
-        # Remove stale Pods/Podfile.lock so flutter build ipa regenerates them against the
-        # resolved pubspec (avoids "Framework 'image_picker_ios' not found" after dep changes).
+        # Remove stale Pods/Podfile.lock/pubspec.lock so flutter build ipa regenerates them
+        # against pub.dev (avoids "Framework 'image_picker_ios' not found" from a stale lock
+        # that pinned image_picker_ios to an incompatible version from a mirror).
         shell: bash
         run: |
-          cd flutter/ios
-          rm -f Podfile.lock
-          rm -rf Pods
+          cd flutter
+          rm -f pubspec.lock
+          rm -f ios/Podfile.lock
+          rm -rf ios/Pods
+          flutter pub get
 
       - name: Build rustdesk
         shell: bash
@@ -1476,6 +1479,8 @@ jobs:
       - name: Patch RustDesk sources for Flutter 3.44
         # Apply the 3.44 source/pubspec deltas on the host checkout; these files are mounted into
         # the docker build container (/workspace) where build.py runs `pub get` against Flutter 3.44.
+        # x86_64 only: aarch64 uses flutter-elinux (max 3.24.5) which needs the old API names.
+        if: matrix.job.arch == 'x86_64'
         shell: bash
         run: bash .github/patches/apply_flutter_3.44_source_patches.sh
 
@@ -1645,6 +1650,10 @@ jobs:
                 export PATH=/opt/flutter-elinux/bin:$PATH
                 sed -i "s/flutter build linux --release/flutter-elinux build linux --verbose/g" ./build.py
                 sed -i "s/x64\/release/arm64\/release/g" ./build.py
+                # Revert Flutter 3.44 API renames for flutter-elinux 3.24.5
+                sed -i 's/DialogThemeData(/DialogTheme(/g' flutter/lib/common.dart
+                sed -i 's/TabBarThemeData(/TabBarTheme(/g' flutter/lib/common.dart
+                sed -i -E 's/(extended_text: )[0-9]+\.[0-9]+\.[0-9]+/\114.0.0/g' flutter/pubspec.yaml
               ;;
               x86_64)
                 export PATH=/opt/flutter/bin:$PATH
@@ -1656,11 +1665,11 @@ jobs:
             tar xf flutter_linux_${{ env.FLUTTER_VERSION }}-stable.tar.xz
             case ${{ matrix.job.arch }} in
               aarch64)
-                # clone repo and reset to flutter ${{ env.FLUTTER_VERSION }}
+                # clone repo and reset to flutter-elinux 3.24.5 (no 3.44.0 tag exists)
                 git clone https://github.com/sony/flutter-elinux.git || true
                 pushd flutter-elinux
                   git fetch
-                  git reset --hard ${{ env.FLUTTER_VERSION }}
+                  git reset --hard 3.24.5
                   bin/flutter-elinux doctor -v
                   bin/flutter-elinux precache --linux
                 popd
