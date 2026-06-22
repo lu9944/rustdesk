@@ -634,6 +634,15 @@ jobs:
           name: liblibrustdesk.a
           path: target/aarch64-apple-ios/release/liblibrustdesk.a
 
+      - name: Clean iOS Pods
+        # Remove stale Pods/Podfile.lock so flutter build ipa regenerates them against the
+        # resolved pubspec (avoids "Framework 'image_picker_ios' not found" after dep changes).
+        shell: bash
+        run: |
+          cd flutter/ios
+          rm -f Podfile.lock
+          rm -rf Pods
+
       - name: Build rustdesk
         shell: bash
         run: |
@@ -1027,6 +1036,9 @@ jobs:
         run: |
           # extended_text >=15.0.0 requires Dart >=3.7.0; Android builds on Flutter 3.24.5 (Dart 3.5.x)
           sed -i -E 's/(extended_text: )[0-9]+\.[0-9]+\.[0-9]+/\114.0.0/g' flutter/pubspec.yaml
+          # Revert Flutter 3.44 API renames for 3.24.5: DialogThemeData -> DialogTheme, TabBarThemeData -> TabBarTheme
+          sed -i 's/DialogThemeData(/DialogTheme(/g' flutter/lib/common.dart
+          sed -i 's/TabBarThemeData(/TabBarTheme(/g' flutter/lib/common.dart
           cd $(dirname $(dirname $(which flutter)))
           [[ "3.24.5" == ${{env.ANDROID_FLUTTER_VERSION}} ]] && git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
 
@@ -1301,6 +1313,9 @@ jobs:
         run: |
           # extended_text >=15.0.0 requires Dart >=3.7.0; Android builds on Flutter 3.24.5 (Dart 3.5.x)
           sed -i -E 's/(extended_text: )[0-9]+\.[0-9]+\.[0-9]+/\114.0.0/g' flutter/pubspec.yaml
+          # Revert Flutter 3.44 API renames for 3.24.5: DialogThemeData -> DialogTheme, TabBarThemeData -> TabBarTheme
+          sed -i 's/DialogThemeData(/DialogTheme(/g' flutter/lib/common.dart
+          sed -i 's/TabBarThemeData(/TabBarTheme(/g' flutter/lib/common.dart
           cd $(dirname $(dirname $(which flutter)))
           [[ "3.24.5" == ${{env.ANDROID_FLUTTER_VERSION}} ]] && git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
 
