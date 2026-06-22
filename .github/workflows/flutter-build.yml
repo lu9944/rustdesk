@@ -565,21 +565,17 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: "stable"
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: "3.24.5"
 
       - name: Patch flutter
         run: |
+          # iOS stays on Flutter 3.24.5 (3.44 breaks iOS plugin linking);
+          # revert the 3.44 API renames committed for desktop builds.
+          perl -i -pe 's/DialogThemeData\(/DialogTheme(/g' flutter/lib/common.dart
+          perl -i -pe 's/TabBarThemeData\(/TabBarTheme(/g' flutter/lib/common.dart
+          perl -i -pe 's/(extended_text: )[\d.]+/${1}14.0.0/' flutter/pubspec.yaml
           cd $(dirname $(dirname $(which flutter)))
-          if [[ "3.24.5" == ${{env.FLUTTER_VERSION}} ]]; then git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff; fi
-
-      - name: Patch RustDesk sources for Flutter 3.44
-        # iOS builds on FLUTTER_VERSION (3.44); apply its source/pubspec deltas so the committed
-        # sources compile against the newer Flutter/Dart (DialogThemeData rename, etc.).
-        shell: bash
-        run: |
-          brew install gnu-sed >/dev/null
-          export PATH="$(brew --prefix gnu-sed)/libexec/gnubin:$PATH"
-          bash .github/patches/apply_flutter_3.44_source_patches.sh
+          git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
 
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
@@ -620,7 +616,7 @@ jobs:
       - name: Restore bridge files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: bridge-artifact-flutter-3.44
+          name: bridge-artifact
           path: ./
 
       - name: Build rustdesk lib
